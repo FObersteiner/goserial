@@ -1,4 +1,9 @@
 /*
+<https://github.com/FObersteiner/goserial> is a modified version of
+<https://github.com/tarm/serial> which isn't maintained anymore.
+
+## ORIGINAL Readme of tarm/serial
+
 Goserial is a simple go package to allow you to read and write from
 the serial port as a stream of bytes.
 
@@ -102,8 +107,8 @@ const (
 //	c1.ReadTimeout = time.Millisecond * 500
 type Config struct {
 	Name        string
-	Baud        int
-	ReadTimeout time.Duration // Total timeout
+	ReadTimeout time.Duration
+	Baud        uint32
 
 	// Size is the number of data bits. If 0, DefaultSize is used.
 	Size byte
@@ -117,7 +122,6 @@ type Config struct {
 	// RTSFlowControl bool
 	// DTRFlowControl bool
 	// XONFlowControl bool
-
 	// CRLFTranslate bool
 }
 

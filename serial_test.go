@@ -129,14 +129,16 @@ func TestConnectionLinux(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 
 	port0 := &serial.Config{
-		Name:        "/tmp/pty0",
-		Baud:        115200,
+		Name: "/tmp/pty0",
+		// Baud:        115200,
+		Baud:        100000,
 		ReadTimeout: time.Duration(time.Second),
 		Size:        8,
 	}
 	port1 := &serial.Config{
-		Name:        "/tmp/pty1",
-		Baud:        115200,
+		Name: "/tmp/pty1",
+		// Baud:        115200,
+		Baud:        100000,
 		ReadTimeout: time.Duration(time.Second),
 		Size:        8,
 	}
