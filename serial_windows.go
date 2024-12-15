@@ -41,12 +41,16 @@ type structTimeouts struct {
 	WriteTotalTimeoutConstant   uint32
 }
 
-func openPort(name string, baud int, databits byte, parity Parity, stopbits StopBits, readTimeout time.Duration) (p *Port, err error) {
+func openPort(name string, baud uint32, databits byte, parity Parity, stopbits StopBits, readTimeout time.Duration) (p *Port, err error) {
 	if len(name) > 0 && name[0] != '\\' {
 		name = "\\\\.\\" + name
 	}
 
-	h, err := syscall.CreateFile(syscall.StringToUTF16Ptr(name),
+	ps, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return nil, err
+	}
+	h, err := syscall.CreateFile(ps,
 		syscall.GENERIC_READ|syscall.GENERIC_WRITE,
 		0,
 		nil,
@@ -114,7 +118,7 @@ func (p *Port) Write(buf []byte) (int, error) {
 
 func (p *Port) Read(buf []byte) (int, error) {
 	if p == nil || p.f == nil {
-		return 0, fmt.Errorf("Invalid port on read")
+		return 0, fmt.Errorf("invalid port on read")
 	}
 
 	p.rl.Lock()
@@ -137,8 +141,7 @@ func (p *Port) Flush() error {
 	return purgeComm(p.fd)
 }
 
-var (
-	nSetCommState,
+var nSetCommState,
 	nSetCommTimeouts,
 	nSetCommMask,
 	nSetupComm,
@@ -147,7 +150,6 @@ var (
 	nResetEvent,
 	nPurgeComm,
 	nFlushFileBuffers uintptr
-)
 
 func init() {
 	k32, err := syscall.LoadLibrary("kernel32.dll")
@@ -175,14 +177,14 @@ func getProcAddr(lib syscall.Handle, name string) uintptr {
 	return addr
 }
 
-func setCommState(h syscall.Handle, baud int, databits byte, parity Parity, stopbits StopBits) error {
+func setCommState(h syscall.Handle, baud uint32, databits byte, parity Parity, stopbits StopBits) error {
 	var params structDCB
 	params.DCBlength = uint32(unsafe.Sizeof(params))
 
 	params.flags[0] = 0x01  // fBinary
 	params.flags[0] |= 0x10 // Assert DSR
 
-	params.BaudRate = uint32(baud)
+	params.BaudRate = baud
 
 	params.ByteSize = databits
 
@@ -212,7 +214,7 @@ func setCommState(h syscall.Handle, baud int, databits byte, parity Parity, stop
 		return ErrBadStopBits
 	}
 
-	r, _, err := syscall.Syscall(nSetCommState, 2, uintptr(h), uintptr(unsafe.Pointer(&params)), 0)
+	r, _, err := syscall.SyscallN(nSetCommState, 2, uintptr(h), uintptr(unsafe.Pointer(&params)), 0)
 	if r == 0 {
 		return err
 	}
@@ -262,7 +264,7 @@ func setCommTimeouts(h syscall.Handle, readTimeout time.Duration) error {
 	timeouts.ReadTotalTimeoutMultiplier = MAXDWORD
 	timeouts.ReadTotalTimeoutConstant = uint32(timeoutMs)
 
-	r, _, err := syscall.Syscall(nSetCommTimeouts, 2, uintptr(h), uintptr(unsafe.Pointer(&timeouts)), 0)
+	r, _, err := syscall.SyscallN(nSetCommTimeouts, 2, uintptr(h), uintptr(unsafe.Pointer(&timeouts)), 0)
 	if r == 0 {
 		return err
 	}
@@ -270,7 +272,7 @@ func setCommTimeouts(h syscall.Handle, readTimeout time.Duration) error {
 }
 
 func setupComm(h syscall.Handle, in, out int) error {
-	r, _, err := syscall.Syscall(nSetupComm, 3, uintptr(h), uintptr(in), uintptr(out))
+	r, _, err := syscall.SyscallN(nSetupComm, 3, uintptr(h), uintptr(in), uintptr(out))
 	if r == 0 {
 		return err
 	}
@@ -279,7 +281,7 @@ func setupComm(h syscall.Handle, in, out int) error {
 
 func setCommMask(h syscall.Handle) error {
 	const EV_RXCHAR = 0x0001
-	r, _, err := syscall.Syscall(nSetCommMask, 2, uintptr(h), EV_RXCHAR, 0)
+	r, _, err := syscall.SyscallN(nSetCommMask, 2, uintptr(h), EV_RXCHAR, 0)
 	if r == 0 {
 		return err
 	}
@@ -287,7 +289,7 @@ func setCommMask(h syscall.Handle) error {
 }
 
 func resetEvent(h syscall.Handle) error {
-	r, _, err := syscall.Syscall(nResetEvent, 1, uintptr(h), 0, 0)
+	r, _, err := syscall.SyscallN(nResetEvent, 1, uintptr(h), 0, 0)
 	if r == 0 {
 		return err
 	}
@@ -299,7 +301,7 @@ func purgeComm(h syscall.Handle) error {
 	const PURGE_RXABORT = 0x0002
 	const PURGE_TXCLEAR = 0x0004
 	const PURGE_RXCLEAR = 0x0008
-	r, _, err := syscall.Syscall(nPurgeComm, 2, uintptr(h),
+	r, _, err := syscall.SyscallN(nPurgeComm, 2, uintptr(h),
 		PURGE_TXABORT|PURGE_RXABORT|PURGE_TXCLEAR|PURGE_RXCLEAR, 0)
 	if r == 0 {
 		return err
@@ -309,7 +311,7 @@ func purgeComm(h syscall.Handle) error {
 
 func newOverlapped() (*syscall.Overlapped, error) {
 	var overlapped syscall.Overlapped
-	r, _, err := syscall.Syscall6(nCreateEvent, 4, 0, 1, 0, 0, 0, 0)
+	r, _, err := syscall.SyscallN(nCreateEvent, 4, 0, 1, 0, 0, 0, 0)
 	if r == 0 {
 		return nil, err
 	}
@@ -319,7 +321,7 @@ func newOverlapped() (*syscall.Overlapped, error) {
 
 func getOverlappedResult(h syscall.Handle, overlapped *syscall.Overlapped) (int, error) {
 	var n int
-	_, _, errNo := syscall.Syscall6(nGetOverlappedResult, 4,
+	_, _, errNo := syscall.SyscallN(nGetOverlappedResult, 4,
 		uintptr(h),
 		uintptr(unsafe.Pointer(overlapped)),
 		uintptr(unsafe.Pointer(&n)), 1, 0, 0)
