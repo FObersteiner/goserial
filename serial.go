@@ -68,25 +68,23 @@ import (
 	"time"
 )
 
-const DefaultSize = 8 // Default value for Config.Size
-
 type (
 	StopBits byte
 	Parity   byte
 )
 
 const (
-	Stop1     StopBits = 1
-	Stop1Half StopBits = 15
-	Stop2     StopBits = 2
-)
+	DefaultSize = 8 // Default value for Config.Size
 
-const (
 	ParityNone  Parity = 'N'
 	ParityOdd   Parity = 'O'
 	ParityEven  Parity = 'E'
 	ParityMark  Parity = 'M' // parity bit is always 1
 	ParitySpace Parity = 'S' // parity bit is always 0
+
+	Stop1     StopBits = 1
+	Stop1Half StopBits = 15
+	Stop2     StopBits = 2
 )
 
 // Config contains the information needed to open a serial port.
